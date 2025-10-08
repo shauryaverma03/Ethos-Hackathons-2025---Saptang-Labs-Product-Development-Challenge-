@@ -1,0 +1,4 @@
+student_id,name,email,department,card_id,device_hash,face_id
+S101,Ananya Sharma,ananya@campus.edu,CSE,CID101,DEV101,FID101
+S102,Rahul Verma,rahul@campus.edu,EEE,CID102,DEV102,FID102
+S103,Neha Patel,neha@campus.edu,MECH,CID103,DEV103,FID103
