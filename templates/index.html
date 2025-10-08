@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ethos - Campus Security Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body>
+    <!-- Animated Background -->
+    <div class="animated-bg">
+        <div class="gradient-orb orb-1"></div>
+        <div class="gradient-orb orb-2"></div>
+        <div class="gradient-orb orb-3"></div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo-section">
+                <div class="logo-icon">
+                    <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M20 5L35 15V25L20 35L5 25V15L20 5Z" fill="url(#gradient)" stroke="#fff" stroke-width="2"/>
+                        <defs>
+                            <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+                <div class="logo-text">
+                    <h1>Ethos</h1>
+                    <p>Campus Security Intelligence</p>
+                </div>
+            </div>
+            <div class="header-stats">
+                <div class="stat-card">
+                    <span class="stat-label">Active Entities</span>
+                    <span class="stat-value" id="active-entities">--</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Total Events</span>
+                    <span class="stat-value" id="total-events">--</span>
+                </div>
+                <div class="stat-card alert-indicator">
+                    <span class="stat-label">Alerts</span>
+                    <span class="stat-value" id="alert-count">0</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Search Panel -->
+            <section class="search-panel card">
+                <h2 class="section-title">Entity Resolution</h2>
+                <div class="search-container">
+                    <div class="search-input-wrapper">
+                        <input type="text" id="search-input" placeholder="Enter Student ID, Name, Email, or Card ID..." class="search-input">
+                        <button id="search-btn" class="btn btn-primary">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M9 17A8 8 0 1 0 9 1a8 8 0 0 0 0 16zM19 19l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                            Search
+                        </button>
+                    </div>
+                    <div id="search-results" class="search-results"></div>
+                </div>
+            </section>
+
+            <!-- Control Panel -->
+            <section class="control-panel card">
+                <h2 class="section-title">Query Controls</h2>
+                <div class="controls-grid">
+                    <div class="control-group">
+                        <label for="entity-select">Select Entity</label>
+                        <select id="entity-select" class="select-input">
+                            <option value="">-- Loading entities --</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label for="start-time">Start Time</label>
+                        <input type="datetime-local" id="start-time" class="input-field">
+                    </div>
+                    <div class="control-group">
+                        <label for="end-time">End Time</label>
+                        <input type="datetime-local" id="end-time" class="input-field">
+                    </div>
+                    <div class="control-group">
+                        <button id="fetch-timeline-btn" class="btn btn-secondary full-width">Generate Timeline</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Dashboard Grid -->
+            <div class="dashboard-grid">
+                <!-- Timeline View -->
+                <section class="timeline-section card">
+                    <div class="section-header">
+                        <h2 class="section-title">Activity Timeline</h2>
+                        <button id="export-timeline-btn" class="btn btn-small">Export</button>
+                    </div>
+                    <div id="timeline-container" class="timeline-container">
+                        <div class="empty-state">
+                            <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="40" cy="40" r="38" stroke="#e0e7ff" stroke-width="4"/>
+                                <path d="M40 20v20l15 10" stroke="#667eea" stroke-width="4" stroke-linecap="round"/>
+                            </svg>
+                            <p>Select an entity to view timeline</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Predictive Insights -->
+                <section class="insights-section card">
+                    <h2 class="section-title">Predictive Insights</h2>
+                    <div id="prediction-container" class="prediction-container">
+                        <div class="empty-state">
+                            <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M40 10l5 25h25l-20 15 5 25-15-15-15 15 5-25-20-15h25l5-25z" fill="#fef3c7" stroke="#f59e0b" stroke-width="2"/>
+                            </svg>
+                            <p>Predictive analysis will appear here</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Location Map -->
+                <section class="map-section card">
+                    <h2 class="section-title">Location Heatmap</h2>
+                    <div id="location-map" class="location-map">
+                        <canvas id="location-chart"></canvas>
+                    </div>
+                </section>
+
+                <!-- Security Alerts -->
+                <section class="alerts-section card">
+                    <div class="section-header">
+                        <h2 class="section-title">Security Alerts</h2>
+                        <span class="badge badge-warning" id="alerts-badge">0</span>
+                    </div>
+                    <div id="alerts-container" class="alerts-container">
+                        <div class="empty-state">
+                            <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M40 5l35 60H5L40 5z" fill="#dcfce7" stroke="#10b981" stroke-width="3"/>
+                                <path d="M40 25v20M40 55v5" stroke="#10b981" stroke-width="4" stroke-linecap="round"/>
+                            </svg>
+                            <p>No active alerts</p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Activity Summary -->
+            <section class="summary-section card">
+                <h2 class="section-title">Activity Summary</h2>
+                <div id="summary-content" class="summary-content">
+                    <p class="text-muted">Summary will be generated after timeline fetch</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="spinner"></div>
+        <p>Processing...</p>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
