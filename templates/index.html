@@ -3,171 +3,149 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ethos - Campus Security Dashboard</title>
+    <title>Ethos - Campus Security Monitor</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 </head>
 <body>
-    <!-- Animated Background -->
-    <div class="animated-bg">
-        <div class="gradient-orb orb-1"></div>
-        <div class="gradient-orb orb-2"></div>
-        <div class="gradient-orb orb-3"></div>
-    </div>
-
-    <!-- Main Container -->
-    <div class="container">
-        <!-- Header -->
-        <header class="header">
-            <div class="logo-section">
-                <div class="logo-icon">
-                    <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M20 5L35 15V25L20 35L5 25V15L20 5Z" fill="url(#gradient)" stroke="#fff" stroke-width="2"/>
-                        <defs>
-                            <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                                <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
-                                <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
-                            </linearGradient>
-                        </defs>
-                    </svg>
-                </div>
-                <div class="logo-text">
-                    <h1>Ethos</h1>
-                    <p>Campus Security Intelligence</p>
+    <div class="wrapper">
+        <!-- Top Bar -->
+        <div class="topbar">
+            <div class="brand">
+                <div class="logo">E</div>
+                <div>
+                    <h1>Ethos Security</h1>
+                    <span class="tagline">Campus Monitoring System</span>
                 </div>
             </div>
-            <div class="header-stats">
-                <div class="stat-card">
-                    <span class="stat-label">Active Entities</span>
-                    <span class="stat-value" id="active-entities">--</span>
+            <div class="stats-row">
+                <div class="stat-box">
+                    <div class="stat-num" id="active-entities">--</div>
+                    <div class="stat-txt">Students</div>
                 </div>
-                <div class="stat-card">
-                    <span class="stat-label">Total Events</span>
-                    <span class="stat-value" id="total-events">--</span>
+                <div class="stat-box">
+                    <div class="stat-num" id="total-events">--</div>
+                    <div class="stat-txt">Events</div>
                 </div>
-                <div class="stat-card alert-indicator">
-                    <span class="stat-label">Alerts</span>
-                    <span class="stat-value" id="alert-count">0</span>
+                <div class="stat-box alert-box">
+                    <div class="stat-num" id="alert-count">0</div>
+                    <div class="stat-txt">Alerts</div>
                 </div>
             </div>
-        </header>
+        </div>
 
         <!-- Main Content -->
-        <main class="main-content">
-            <!-- Search Panel -->
-            <section class="search-panel card">
-                <h2 class="section-title">Entity Resolution</h2>
-                <div class="search-container">
-                    <div class="search-input-wrapper">
-                        <input type="text" id="search-input" placeholder="Enter Student ID, Name, Email, or Card ID..." class="search-input">
-                        <button id="search-btn" class="btn btn-primary">
-                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M9 17A8 8 0 1 0 9 1a8 8 0 0 0 0 16zM19 19l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                            </svg>
-                            Search
-                        </button>
-                    </div>
-                    <div id="search-results" class="search-results"></div>
+        <div class="main-container">
+            
+            <!-- Search Section -->
+            <div class="section">
+                <h2 class="section-head">Search Student</h2>
+                <div class="search-box">
+                    <input type="text" id="search-input" placeholder="Enter Student ID, Name, Card ID, or Email...">
+                    <button id="search-btn" class="btn-search">Search</button>
                 </div>
-            </section>
-
-            <!-- Control Panel -->
-            <section class="control-panel card">
-                <h2 class="section-title">Query Controls</h2>
-                <div class="controls-grid">
-                    <div class="control-group">
-                        <label for="entity-select">Select Entity</label>
-                        <select id="entity-select" class="select-input">
-                            <option value="">-- Loading entities --</option>
-                        </select>
-                    </div>
-                    <div class="control-group">
-                        <label for="start-time">Start Time</label>
-                        <input type="datetime-local" id="start-time" class="input-field">
-                    </div>
-                    <div class="control-group">
-                        <label for="end-time">End Time</label>
-                        <input type="datetime-local" id="end-time" class="input-field">
-                    </div>
-                    <div class="control-group">
-                        <button id="fetch-timeline-btn" class="btn btn-secondary full-width">Generate Timeline</button>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Dashboard Grid -->
-            <div class="dashboard-grid">
-                <!-- Timeline View -->
-                <section class="timeline-section card">
-                    <div class="section-header">
-                        <h2 class="section-title">Activity Timeline</h2>
-                        <button id="export-timeline-btn" class="btn btn-small">Export</button>
-                    </div>
-                    <div id="timeline-container" class="timeline-container">
-                        <div class="empty-state">
-                            <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <circle cx="40" cy="40" r="38" stroke="#e0e7ff" stroke-width="4"/>
-                                <path d="M40 20v20l15 10" stroke="#667eea" stroke-width="4" stroke-linecap="round"/>
-                            </svg>
-                            <p>Select an entity to view timeline</p>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- Predictive Insights -->
-                <section class="insights-section card">
-                    <h2 class="section-title">Predictive Insights</h2>
-                    <div id="prediction-container" class="prediction-container">
-                        <div class="empty-state">
-                            <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M40 10l5 25h25l-20 15 5 25-15-15-15 15 5-25-20-15h25l5-25z" fill="#fef3c7" stroke="#f59e0b" stroke-width="2"/>
-                            </svg>
-                            <p>Predictive analysis will appear here</p>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- Location Map -->
-                <section class="map-section card">
-                    <h2 class="section-title">Location Heatmap</h2>
-                    <div id="location-map" class="location-map">
-                        <canvas id="location-chart"></canvas>
-                    </div>
-                </section>
-
-                <!-- Security Alerts -->
-                <section class="alerts-section card">
-                    <div class="section-header">
-                        <h2 class="section-title">Security Alerts</h2>
-                        <span class="badge badge-warning" id="alerts-badge">0</span>
-                    </div>
-                    <div id="alerts-container" class="alerts-container">
-                        <div class="empty-state">
-                            <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M40 5l35 60H5L40 5z" fill="#dcfce7" stroke="#10b981" stroke-width="3"/>
-                                <path d="M40 25v20M40 55v5" stroke="#10b981" stroke-width="4" stroke-linecap="round"/>
-                            </svg>
-                            <p>No active alerts</p>
-                        </div>
-                    </div>
-                </section>
+                <div id="search-results"></div>
             </div>
 
-            <!-- Activity Summary -->
-            <section class="summary-section card">
-                <h2 class="section-title">Activity Summary</h2>
-                <div id="summary-content" class="summary-content">
-                    <p class="text-muted">Summary will be generated after timeline fetch</p>
+            <!-- Controls -->
+            <div class="section">
+                <h2 class="section-head">Activity Timeline</h2>
+                <div class="form-row">
+                    <div class="form-col">
+                        <label>Select Student</label>
+                        <select id="entity-select">
+                            <option value="">Loading...</option>
+                        </select>
+                    </div>
+                    <div class="form-col">
+                        <label>Start Date/Time</label>
+                        <input type="datetime-local" id="start-time">
+                    </div>
+                    <div class="form-col">
+                        <label>End Date/Time</label>
+                        <input type="datetime-local" id="end-time">
+                    </div>
+                    <div class="form-col">
+                        <label>&nbsp;</label>
+                        <button id="fetch-timeline-btn" class="btn-primary">Generate Timeline</button>
+                    </div>
                 </div>
-            </section>
-        </main>
+            </div>
+
+            <!-- Two Column Layout -->
+            <div class="two-cols">
+                
+                <!-- Left Column -->
+                <div class="col-left">
+                    
+                    <!-- Timeline -->
+                    <div class="section">
+                        <div class="section-header">
+                            <h2 class="section-head">Timeline</h2>
+                            <button id="export-timeline-btn" class="btn-small">Export</button>
+                        </div>
+                        <div id="timeline-container" class="timeline-box">
+                            <div class="placeholder">
+                                <p>⏱️ Select a student and generate timeline</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Summary -->
+                    <div class="section">
+                        <h2 class="section-head">Summary</h2>
+                        <div id="summary-content" class="summary-box">
+                            <p class="muted">Summary will appear here after timeline generation.</p>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Right Column -->
+                <div class="col-right">
+                    
+                    <!-- Prediction -->
+                    <div class="section">
+                        <h2 class="section-head">Location Prediction</h2>
+                        <div id="prediction-container" class="predict-box">
+                            <div class="placeholder">
+                                <p>🔮 Predictive analysis will appear here</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chart -->
+                    <div class="section">
+                        <h2 class="section-head">Location Activity</h2>
+                        <div class="chart-box">
+                            <canvas id="location-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Alerts -->
+                    <div class="section">
+                        <div class="section-header">
+                            <h2 class="section-head">Security Alerts</h2>
+                            <span class="badge-count" id="alerts-badge">0</span>
+                        </div>
+                        <div id="alerts-container" class="alerts-box">
+                            <div class="placeholder">
+                                <p>✅ No active alerts</p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
     </div>
 
-    <!-- Loading Overlay -->
-    <div id="loading-overlay" class="loading-overlay" style="display: none;">
-        <div class="spinner"></div>
+    <!-- Loading Screen -->
+    <div id="loading-overlay" class="loading-screen" style="display: none;">
+        <div class="loader"></div>
         <p>Processing...</p>
     </div>
 

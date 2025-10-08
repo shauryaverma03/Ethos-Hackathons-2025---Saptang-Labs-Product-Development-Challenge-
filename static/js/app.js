@@ -1,425 +1,333 @@
-// Global state
-let selectedEntity = null;
-let currentTimeline = null;
-let locationChart = null;
+// Global vars
+let currentStudent = null;
+let timelineData = null;
+let chartInstance = null;
 
-// API base URL
-const API_BASE = 'http://localhost:5000/api';
+const API = 'http://localhost:5000/api';
 
-// Initialize app
-document.addEventListener('DOMContentLoaded', () => {
-    initializeApp();
-    setupEventListeners();
+// Init on load
+document.addEventListener('DOMContentLoaded', function() {
+    loadStudents();
+    loadStats();
     setDefaultTimes();
+    setupEvents();
 });
 
-async function initializeApp() {
-    showLoading();
-    try {
-        await loadEntities();
-        await loadStatistics();
-        hideLoading();
-    } catch (error) {
-        console.error('Initialization error:', error);
-        hideLoading();
-        showError('Failed to initialize application');
-    }
-}
-
-function setupEventListeners() {
-    // Search functionality
-    document.getElementById('search-btn').addEventListener('click', handleSearch);
-    document.getElementById('search-input').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') handleSearch();
-    });
-    
-    // Entity selection
-    document.getElementById('entity-select').addEventListener('change', handleEntityChange);
-    
-    // Timeline fetch
-    document.getElementById('fetch-timeline-btn').addEventListener('click', handleTimelineFetch);
-    
-    // Export functionality
-    document.getElementById('export-timeline-btn').addEventListener('click', exportTimeline);
+function setupEvents() {
+    document.getElementById('search-btn').onclick = searchStudent;
+    document.getElementById('search-input').onkeypress = function(e) {
+        if (e.key === 'Enter') searchStudent();
+    };
+    document.getElementById('entity-select').onchange = handleStudentSelect;
+    document.getElementById('fetch-timeline-btn').onclick = fetchTimeline;
+    document.getElementById('export-timeline-btn').onclick = exportData;
 }
 
 function setDefaultTimes() {
     const now = new Date();
-    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    
-    document.getElementById('end-time').value = formatDateTime(now);
-    document.getElementById('start-time').value = formatDateTime(yesterday);
+    const yesterday = new Date(now.getTime() - 24*60*60*1000);
+    document.getElementById('end-time').value = now.toISOString().slice(0,16);
+    document.getElementById('start-time').value = yesterday.toISOString().slice(0,16);
 }
 
-function formatDateTime(date) {
-    return date.toISOString().slice(0, 16);
-}
-
-// API calls
-async function loadEntities() {
+async function loadStudents() {
     try {
-        const response = await axios.get(`${API_BASE}/entities`);
-        const entities = response.data.entities;
-        
+        const res = await axios.get(`${API}/entities`);
         const select = document.getElementById('entity-select');
-        select.innerHTML = '<option value="">-- Select Entity --</option>';
-        
-        entities.forEach(entity => {
-            const option = document.createElement('option');
-            option.value = entity.student_id;
-            option.textContent = `${entity.student_id} - ${entity.name}`;
-            select.appendChild(option);
+        select.innerHTML = '<option value="">-- Select Student --</option>';
+        res.data.entities.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s.student_id;
+            opt.textContent = `${s.student_id} - ${s.name}`;
+            select.appendChild(opt);
         });
-    } catch (error) {
-        console.error('Failed to load entities:', error);
+    } catch(e) {
+        console.error('Load students failed:', e);
     }
 }
 
-async function loadStatistics() {
+async function loadStats() {
     try {
-        const response = await axios.get(`${API_BASE}/stats`);
-        const stats = response.data;
+        const res = await axios.get(`${API}/stats`);
+        document.getElementById('active-entities').textContent = res.data.total_entities;
+        document.getElementById('total-events').textContent = res.data.total_events;
         
-        document.getElementById('active-entities').textContent = stats.total_entities;
-        document.getElementById('total-events').textContent = stats.total_events;
-        
-        // Check alerts
-        const alertResponse = await axios.get(`${API_BASE}/security-report?hours=24`);
-        const alertCount = alertResponse.data.alerts.length;
+        const alertRes = await axios.get(`${API}/security-report?hours=24`);
+        const alertCount = alertRes.data.alerts.length;
         document.getElementById('alert-count').textContent = alertCount;
         document.getElementById('alerts-badge').textContent = alertCount;
         
         if (alertCount > 0) {
-            displaySecurityAlerts(alertResponse.data.alerts);
+            showAlerts(alertRes.data.alerts);
         }
-    } catch (error) {
-        console.error('Failed to load statistics:', error);
+    } catch(e) {
+        console.error('Load stats failed:', e);
     }
 }
 
-async function handleSearch() {
-    const input = document.getElementById('search-input').value.trim();
-    if (!input) return;
+async function searchStudent() {
+    const query = document.getElementById('search-input').value.trim();
+    if (!query) return;
     
     showLoading();
     try {
-        const response = await axios.post(`${API_BASE}/search`, {
-            identifier: input,
+        const res = await axios.post(`${API}/search`, {
+            identifier: query,
             type: 'auto'
         });
         
-        const resultsDiv = document.getElementById('search-results');
-        
-        if (response.data.found) {
-            const details = response.data.details;
-            resultsDiv.innerHTML = `
-                <div class="search-result-card">
-                    <h3>Entity Found (Confidence: ${(response.data.confidence * 100).toFixed(1)}%)</h3>
-                    <div class="result-details">
-                        <p><strong>Student ID:</strong> ${details.student_id}</p>
-                        <p><strong>Name:</strong> ${details.name}</p>
-                        <p><strong>Email:</strong> ${details.email}</p>
-                        <p><strong>Department:</strong> ${details.department}</p>
+        const box = document.getElementById('search-results');
+        if (res.data.found) {
+            const d = res.data.details;
+            box.innerHTML = `
+                <div class="result-card">
+                    <h3>Found: ${d.name} (${(res.data.confidence * 100).toFixed(0)}% match)</h3>
+                    <div class="result-info">
+                        <p><strong>ID:</strong> ${d.student_id}</p>
+                        <p><strong>Email:</strong> ${d.email}</p>
+                        <p><strong>Dept:</strong> ${d.department}</p>
                     </div>
-                    <button onclick="selectEntity('${details.student_id}')" class="btn btn-primary">View Details</button>
+                    <button onclick="selectStudent('${d.student_id}')" class="btn-primary">View Activity</button>
                 </div>
             `;
         } else {
-            resultsDiv.innerHTML = `
-                <div class="search-result-card error">
-                    <p>No entity found matching "${input}"</p>
-                </div>
-            `;
+            box.innerHTML = `<div class="result-card"><p>No match found for "${query}"</p></div>`;
         }
-        
-        hideLoading();
-    } catch (error) {
-        console.error('Search error:', error);
-        hideLoading();
-        showError('Search failed');
+    } catch(e) {
+        console.error('Search failed:', e);
+    }
+    hideLoading();
+}
+
+function selectStudent(sid) {
+    document.getElementById('entity-select').value = sid;
+    handleStudentSelect();
+}
+
+function handleStudentSelect() {
+    const sid = document.getElementById('entity-select').value;
+    if (sid) {
+        currentStudent = sid;
+        fetchTimeline();
     }
 }
 
-function selectEntity(entityId) {
-    document.getElementById('entity-select').value = entityId;
-    handleEntityChange();
-}
-
-async function handleEntityChange() {
-    const entityId = document.getElementById('entity-select').value;
-    if (!entityId) return;
-    
-    selectedEntity = entityId;
-    
-    // Auto-fetch timeline
-    await handleTimelineFetch();
-}
-
-async function handleTimelineFetch() {
-    const entityId = document.getElementById('entity-select').value;
-    if (!entityId) {
-        showError('Please select an entity');
+async function fetchTimeline() {
+    const sid = document.getElementById('entity-select').value;
+    if (!sid) {
+        alert('Please select a student');
         return;
     }
     
-    const startTime = document.getElementById('start-time').value;
-    const endTime = document.getElementById('end-time').value;
+    const start = document.getElementById('start-time').value;
+    const end = document.getElementById('end-time').value;
     
-    if (!startTime || !endTime) {
-        showError('Please select time range');
+    if (!start || !end) {
+        alert('Please set time range');
         return;
     }
     
     showLoading();
     
     try {
-        // Fetch timeline
-        const timelineResponse = await axios.get(
-            `${API_BASE}/timeline/${entityId}?start=${startTime}&end=${endTime}`
-        );
-        currentTimeline = timelineResponse.data;
-        displayTimeline(currentTimeline);
+        // Get timeline
+        const timeRes = await axios.get(`${API}/timeline/${sid}?start=${start}&end=${end}`);
+        timelineData = timeRes.data;
+        displayTimeline(timelineData);
         
-        // Fetch prediction
-        const predictionResponse = await axios.get(`${API_BASE}/predict/${entityId}`);
-        displayPrediction(predictionResponse.data);
+        // Get prediction
+        const predRes = await axios.get(`${API}/predict/${sid}`);
+        displayPrediction(predRes.data);
         
-        // Fetch alerts
-        const alertResponse = await axios.get(`${API_BASE}/alerts/${entityId}`);
-        displayEntityAlerts(alertResponse.data);
+        // Get alerts
+        const alertRes = await axios.get(`${API}/alerts/${sid}`);
+        displayStudentAlerts(alertRes.data);
         
-        // Update summary
-        displaySummary(currentTimeline);
+        // Show summary
+        displaySummary(timelineData);
         
-        // Update location chart
-        updateLocationChart(currentTimeline);
+        // Update chart
+        updateChart(timelineData);
         
-        hideLoading();
-    } catch (error) {
-        console.error('Timeline fetch error:', error);
-        hideLoading();
-        showError('Failed to fetch timeline');
+    } catch(e) {
+        console.error('Fetch timeline failed:', e);
+        alert('Error loading timeline');
     }
+    
+    hideLoading();
 }
 
 function displayTimeline(data) {
-    const container = document.getElementById('timeline-container');
+    const box = document.getElementById('timeline-container');
     
     if (!data.timeline || data.timeline.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <p>No activities found in the selected time range</p>
-            </div>
-        `;
+        box.innerHTML = '<div class="placeholder"><p>No activity found</p></div>';
         return;
     }
     
     let html = '';
-    data.timeline.forEach(event => {
-        const time = new Date(event.timestamp).toLocaleString();
-        const badgeClass = `badge-${event.event_type}`;
-        
+    data.timeline.forEach(e => {
+        const time = new Date(e.timestamp).toLocaleString();
+        const tag = `tag-${e.event_type}`;
         html += `
-            <div class="timeline-item">
-                <div class="timeline-content">
+            <div class="timeline-entry">
+                <div class="timeline-card">
                     <div class="timeline-time">${time}</div>
-                    <div class="timeline-event">${event.location}</div>
-                    <div class="timeline-location">Source: ${event.source}</div>
-                    <span class="timeline-badge ${badgeClass}">${event.event_type.toUpperCase()}</span>
-                    <span class="timeline-badge" style="background: rgba(255,255,255,0.1);">
-                        ${(event.confidence * 100).toFixed(0)}% confidence
-                    </span>
+                    <div class="timeline-loc">${e.location}</div>
+                    <div class="timeline-src">${e.source}</div>
+                    <span class="timeline-tag ${tag}">${e.event_type.toUpperCase()}</span>
+                    <span class="timeline-tag">${(e.confidence * 100).toFixed(0)}%</span>
                 </div>
             </div>
         `;
     });
     
-    container.innerHTML = html;
+    box.innerHTML = html;
 }
 
 function displayPrediction(data) {
-    const container = document.getElementById('prediction-container');
+    const box = document.getElementById('prediction-container');
+    const conf = (data.confidence * 100).toFixed(0);
     
-    const confidencePercent = (data.confidence * 100).toFixed(1);
-    
-    container.innerHTML = `
-        <div class="prediction-card">
-            <div class="prediction-header">
-                <div class="prediction-label">Predicted Location</div>
-                <div class="confidence-badge">${confidencePercent}% confidence</div>
+    box.innerHTML = `
+        <div class="prediction-result">
+            <div class="predict-head">
+                <span class="predict-label">Predicted Location</span>
+                <span class="confidence-tag">${conf}%</span>
             </div>
-            <div class="prediction-location">${data.prediction}</div>
-            <div class="prediction-explanation">${data.explanation}</div>
+            <div class="predict-location">${data.prediction}</div>
+            <div class="predict-explain">${data.explanation}</div>
         </div>
     `;
 }
 
-function displayEntityAlerts(data) {
-    const container = document.getElementById('alerts-container');
+function displayStudentAlerts(data) {
+    const box = document.getElementById('alerts-container');
     let html = '';
     
-    // Inactivity alert
     if (data.inactivity.alert) {
-        html += createAlertHTML(data.inactivity);
+        html += makeAlertCard(data.inactivity);
     }
     
-    // Anomaly alerts
     if (data.anomalies && data.anomalies.length > 0) {
-        data.anomalies.forEach(anomaly => {
-            html += createAlertHTML(anomaly);
+        data.anomalies.forEach(a => {
+            html += makeAlertCard(a);
         });
     }
     
     if (html === '') {
-        container.innerHTML = `
-            <div class="empty-state">
-                <p>No alerts for this entity</p>
-            </div>
-        `;
+        box.innerHTML = '<div class="placeholder"><p>✅ No alerts</p></div>';
     } else {
-        container.innerHTML = html;
+        box.innerHTML = html;
     }
 }
 
-function displaySecurityAlerts(alerts) {
-    const container = document.getElementById('alerts-container');
+function showAlerts(alerts) {
+    const box = document.getElementById('alerts-container');
     let html = '';
-    
-    alerts.forEach(alert => {
-        html += createAlertHTML(alert);
+    alerts.forEach(a => {
+        html += makeAlertCard(a);
     });
-    
-    if (html) {
-        container.innerHTML = html;
-    }
+    if (html) box.innerHTML = html;
 }
 
-function createAlertHTML(alert) {
-    const severityClass = alert.severity ? alert.severity.toLowerCase() : 'medium';
+function makeAlertCard(alert) {
+    const sev = (alert.severity || 'medium').toLowerCase();
     return `
-        <div class="alert-item severity-${severityClass}">
-            <div class="alert-header">
-                <span class="alert-severity severity-${severityClass}">${alert.severity || 'MEDIUM'}</span>
+        <div class="alert-card ${sev}">
+            <div class="alert-top">
+                <span class="severity-badge severity-${sev}">${alert.severity || 'MEDIUM'}</span>
             </div>
-            <div class="alert-message">${alert.message}</div>
+            <div class="alert-msg">${alert.message}</div>
         </div>
     `;
 }
 
 function displaySummary(data) {
-    const container = document.getElementById('summary-content');
+    const box = document.getElementById('summary-content');
     
     let html = `
         <div class="summary-stats">
-            <p><strong>Entity ID:</strong> ${data.student_id}</p>
-            <p><strong>Total Events:</strong> ${data.total_events}</p>
-            <p><strong>Locations Visited:</strong> ${data.locations.length}</p>
+            <p><strong>Student:</strong> ${data.student_id}</p>
+            <p><strong>Events:</strong> ${data.total_events}</p>
+            <p><strong>Locations:</strong> ${data.locations.length}</p>
         </div>
-        <p style="margin-top: 1rem;">${data.summary}</p>
+        <p>${data.summary}</p>
     `;
     
     if (data.last_seen) {
+        const time = new Date(data.last_seen.timestamp).toLocaleString();
         html += `
-            <div style="margin-top: 1rem; padding: 1rem; background: rgba(102, 126, 234, 0.1); border-radius: 12px;">
+            <div class="summary-stats" style="margin-top:10px;">
                 <strong>Last Seen:</strong><br>
-                ${new Date(data.last_seen.timestamp).toLocaleString()}<br>
+                ${time}<br>
                 <strong>Location:</strong> ${data.last_seen.location}<br>
                 <strong>Source:</strong> ${data.last_seen.source}
             </div>
         `;
     }
     
-    container.innerHTML = html;
+    box.innerHTML = html;
 }
 
-function updateLocationChart(data) {
+function updateChart(data) {
     const canvas = document.getElementById('location-chart');
     const ctx = canvas.getContext('2d');
     
-    // Extract location frequency
-    const locationCounts = {};
-    data.timeline.forEach(event => {
-        locationCounts[event.location] = (locationCounts[event.location] || 0) + 1;
+    // Count locations
+    const counts = {};
+    data.timeline.forEach(e => {
+        counts[e.location] = (counts[e.location] || 0) + 1;
     });
     
-    const locations = Object.keys(locationCounts);
-    const counts = Object.values(locationCounts);
+    const labels = Object.keys(counts);
+    const values = Object.values(counts);
     
-    // Destroy existing chart
-    if (locationChart) {
-        locationChart.destroy();
-    }
+    if (chartInstance) chartInstance.destroy();
     
-    // Create new chart
-    locationChart = new Chart(ctx, {
+    chartInstance = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: locations,
+            labels: labels,
             datasets: [{
-                label: 'Activity Count',
-                data: counts,
-                backgroundColor: 'rgba(102, 126, 234, 0.8)',
-                borderColor: 'rgba(102, 126, 234, 1)',
-                borderWidth: 2,
-                borderRadius: 8
+                label: 'Activities',
+                data: values,
+                backgroundColor: '#5e81ac',
+                borderColor: '#5e81ac',
+                borderWidth: 1
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: false
-                }
-            },
+            plugins: { legend: { display: false } },
             scales: {
-                y: {
-                    beginAtZero: true,
-                    grid: {
-                        color: 'rgba(148, 163, 184, 0.1)'
-                    },
-                    ticks: {
-                        color: '#94a3b8'
-                    }
-                },
-                x: {
-                    grid: {
-                        display: false
-                    },
-                    ticks: {
-                        color: '#94a3b8'
-                    }
-                }
+                y: { beginAtZero: true }
             }
         }
     });
 }
 
-function exportTimeline() {
-    if (!currentTimeline || !currentTimeline.timeline) {
-        showError('No timeline data to export');
+function exportData() {
+    if (!timelineData) {
+        alert('No data to export');
         return;
     }
     
-    const dataStr = JSON.stringify(currentTimeline, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `timeline_${selectedEntity}_${Date.now()}.json`;
-    link.click();
+    const json = JSON.stringify(timelineData, null, 2);
+    const blob = new Blob([json], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `timeline_${currentStudent}_${Date.now()}.json`;
+    a.click();
     URL.revokeObjectURL(url);
 }
 
-// Utility functions
 function showLoading() {
     document.getElementById('loading-overlay').style.display = 'flex';
 }
 
 function hideLoading() {
     document.getElementById('loading-overlay').style.display = 'none';
-}
-
-function showError(message) {
-    alert(message); // Replace with better error handling
 }
