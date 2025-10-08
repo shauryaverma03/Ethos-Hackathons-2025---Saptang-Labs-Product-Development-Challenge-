@@ -12,9 +12,9 @@ from core.predictive_monitoring import PredictiveMonitor
 from core.security_alerts import SecurityAlertSystem
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 
-# Global variables to store data
+# Global variables
 resolver = None
 fusion_engine = None
 predictor = None
@@ -27,12 +27,16 @@ def initialize_system():
     global resolver, fusion_engine, predictor, alert_system, fused_data, student_profiles
     
     try:
+        # Get base directory
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        data_dir = os.path.join(base_dir, 'data')
+        
         # Load datasets
-        student_profiles = pd.read_csv('data/student_profiles.csv')
-        swipe_logs = pd.read_csv('data/swipe_logs.csv')
-        wifi_logs = pd.read_csv('data/wifi_logs.csv')
-        library_logs = pd.read_csv('data/library_checkouts.csv')
-        cctv_data = pd.read_csv('data/cctv_data.csv')
+        student_profiles = pd.read_csv(os.path.join(data_dir, 'student_profiles.csv'))
+        swipe_logs = pd.read_csv(os.path.join(data_dir, 'swipe_logs.csv'))
+        wifi_logs = pd.read_csv(os.path.join(data_dir, 'wifi_logs.csv'))
+        library_logs = pd.read_csv(os.path.join(data_dir, 'library_checkouts.csv'))
+        cctv_data = pd.read_csv(os.path.join(data_dir, 'cctv_data.csv'))
         
         # Initialize components
         resolver = EntityResolver(student_profiles)
@@ -54,6 +58,8 @@ def initialize_system():
         return True
     except Exception as e:
         print(f"✗ System initialization failed: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 @app.route('/')
@@ -76,7 +82,6 @@ def get_timeline(entity_id):
     if fused_data is None:
         return jsonify({'error': 'System not initialized'}), 500
     
-    # Get time range from query params
     start_str = request.args.get('start', None)
     end_str = request.args.get('end', None)
     
@@ -132,7 +137,6 @@ def search_entity():
     student_id, confidence = resolver.resolve_entity(identifier, id_type)
     
     if student_id:
-        # Get student details
         student_info = student_profiles[student_profiles['student_id'] == student_id].to_dict('records')[0]
         return jsonify({
             'found': True,
@@ -167,7 +171,8 @@ def get_statistics():
 if __name__ == '__main__':
     print("Initializing Campus Entity Resolution & Security Monitoring System...")
     if initialize_system():
-        print("Starting server on http://localhost:5000")
-        app.run(debug=True, host='0.0.0.0', port=5000)
+        port = int(os.environ.get('PORT', 5000))
+        print(f"Starting server on port {port}")
+        app.run(host='0.0.0.0', port=port)
     else:
         print("Failed to start server. Please check data files.")

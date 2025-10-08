@@ -3,7 +3,7 @@ let currentStudent = null;
 let timelineData = null;
 let chartInstance = null;
 
-const API = 'http://localhost:5000/api';
+const API = window.location.origin + '/api';
 
 // Init on load
 document.addEventListener('DOMContentLoaded', function() {
